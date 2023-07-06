@@ -43,7 +43,7 @@
 ## DeepLabv3+ with DenseASPP and Strip pooling
 ---
 ### 项目说明  
-       采用Pytorch框架。整体采用了以Deeplabv2为backbone的Deeplabv3+网络，并在此基础上，引入DenseASPP & Strip Pooling, 在PASCALVOC & CityScapes 数据集进行训练和验证。结果对比发现，改进后的模型对比原模型有更加优越。
+采用Pytorch框架。整体采用了以Deeplabv2为backbone的Deeplabv3+网络，并在此基础上，引入DenseASPP & Strip Pooling, 在PASCALVOC & CityScapes 数据集进行训练和验证。结果对比发现，改进后的模型对比原模型有更加优越。
 ### 目录
 1. [News Update](#news_update)
 2. [模型训练 Training](#模型训练)
