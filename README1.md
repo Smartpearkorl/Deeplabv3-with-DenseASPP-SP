@@ -109,7 +109,7 @@ train_lines = {'Type':0,'image_lines':image_train_lines,'label_lines':label_trai
 val_lines = {'Type':1,'image_lines':image_val_lines,'label_lines':label_val_lines}
 ```
 ### 补充说明
-数据集的预处理如下：
+数据集的预处理如下:
 ![](page_img\read_line.jpg)
 根据.txt文件得到原图和标签名字，在DeeplabDataset函数中处理两个数据集。
 ```python
