@@ -40,26 +40,33 @@
 
 
 
-## DeepLabv3+ with DenseASPP and Strip pooling
+# DeepLabv3+ with DenseASPP and Strip pooling
 ---
-### 项目说明  
-       采用Pytorch框架。整体采用了以Deeplabv2为backbone的Deeplabv3+网络，并在此基础上，引入DenseASPP & Strip Pooling, 在PASCALVOC & CityScapes 数据集进行训练和验证。结果对比发现，改进后的模型对比原模型有更加优越。
-### 目录
+## 项目说明  
+02采用Pytorch框架。整体采用了以Deeplabv2为backbone的Deeplabv3+网络，并在此基础上，引入DenseASPP & Strip Pooling, 在PASCALVOC & CityScapes 数据集进行训练和验证。结果对比发现，改进后的模型对比原模型有更加优越。网络结构如下：  
+![](page_img\net_structure.png)
+
+
+## 目录
 1. [News Update](#news_update)
 2. [模型训练 Training](#模型训练)
 3. 第三项
-### News_Update
+## News_Update
 **`2023-07-10`**:**第二个下午，希望能把训练代码弄完**   
 **`2023-07-06`**:**开始整理毕设代码，希望能弄完** 
-### <span id="jump_性能情况">性能情况</span> 
+## 特别说明
+此项目参考了[Bubbliiiing](https://github.com/bubbliiiing/deeplabv3-plus-pytorch)的语义分割项目，数据集预处理、训练、结果处理都是学习了该项目的流程。本项目在此基础上，添加了DenseASPP和Strip pooling模块，并且主要是针对Cityscapes数据集进行训练。
+
+
+## <span id="jump_性能情况">性能情况</span> 
 |network | train dataset | weight file | val dataset | input size | mIOU | 
 | :-----:| :-----: | :-----: | :------: | :------: | :------: | 
 |ASPP | VOC | [deeplab_mobilenetv2.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_mobilenetv2.pth) | VOC-Val | 512x512| 72.63 | 
 |DenseASPP+SP | VOC | [deeplab_mobilenetv2.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_mobilenetv2.pth) | VOC-Val | 512x512| 74.44 | 
 |ASPP | Cityscapes| [deeplab_xception.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_xception.pth) | Cityscapes-Val | 512x512|64.92 | 
 |DenseASPP+SP | Cityscapes| [deeplab_xception.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_xception.pth) | Cityscapes-Val | 512x512| 67.37 | 
-### 模型训练
-训练代码没有整合，分为四个文件，对应[性能情况](#jump_性能情况)的四个mIOU结果。具体在代码中，也就是网络结构和数据集不同。
+## 模型训练
+具体的训练参数调整可以参考[Bubbliiiing的项目](https://github.com/bubbliiiing/deeplabv3-plus-pytorch)，写的也非常详细。本项目的训练代码没有整合，分为四个文件，对应[性能情况](#jump_性能情况)的四个mIOU结果。具体在代码中，也就是网络结构和数据集不同。
 ```python
 #网络结构
 from nets.deeplabv3_plus import DeepLab # Network: ASPP
@@ -99,7 +106,34 @@ num_val = len(image_val_lines)
 train_lines = {'Type':0,'image_lines':image_train_lines,'label_lines':label_train_lines}
 val_lines = {'Type':1,'image_lines':image_val_lines,'label_lines':label_val_lines}
 ```
-
+### 补充说明
+数据集的预处理如下：
+![](page_img\read_line.jpg)
+根据.txt文件得到原图和标签名字，在DeeplabDataset函数中处理两个数据集。
+```python
+class DeeplabDataset(Dataset):
+    def __init__(self, annotation_lines, input_shape, num_classes, train, dataset_path):
+        super(DeeplabDataset, self).__init__()
+        # -------------------------------#
+        #   Cityscapes数据集
+        # -------------------------------#
+        if  type(annotation_lines)==dict:
+            self.annotation_type = annotation_lines['Type']
+            self.annotation_image_lines = annotation_lines['image_lines']
+            self.annotation_label_lines = annotation_lines['label_lines']
+            self.length = len(self.annotation_image_lines)
+            self.annotation_lines = []
+        # -------------------------------#
+        #   VOC数据集
+        # -------------------------------#
+        else:
+            self.annotation_lines   = annotation_lines
+            self.length             = len(annotation_lines)
+        self.input_shape        = input_shape
+        self.num_classes        = num_classes
+        self.train              = train
+        self.dataset_path       = dataset_path
+```
 
 
 
