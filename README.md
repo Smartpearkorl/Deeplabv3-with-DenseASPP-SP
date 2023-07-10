@@ -1,172 +1,126 @@
-#----------------------------------------------------#
-#   将单张图片预测、摄像头检测和FPS测试功能
-#   整合到了一个py文件中，通过指定mode进行模式的修改。
-#----------------------------------------------------#
-import time
+## DeepLabv3+：Encoder-Decoder with Atrous Separable Convolution语义分割模型在Pytorch当中的实现
+---
 
-import cv2
-import numpy as np
-from PIL import Image
-import matplotlib.pyplot as plt
-import os  # 注意要输入OS模块
+### 目录
+1. [仓库更新 Top News](#仓库更新)
+2. [相关仓库 Related code](#相关仓库)
+3. [性能情况 Performance](#性能情况
+4. [所需环境 Environment](#所需环境)
+5. [文件下载 Download](#文件下载)
+6. [训练步骤 How2train](#训练步骤)
+7. [预测步骤 How2predict](#预测步骤)
+8. [评估步骤 miou](#评估步骤)
+9. [参考资料 Reference](#Reference)
 
-from deeplab import DeeplabV3
+## Top News
+**`2022-04`**:**支持多GPU训练。**  
 
-if __name__ == "__main__":
-    #-------------------------------------------------------------------------#
-    #   如果想要修改对应种类的颜色，到__init__函数里修改self.colors即可
-    #-------------------------------------------------------------------------#
-    deeplab = DeeplabV3(type="dense_voc")
-    #----------------------------------------------------------------------------------------------------------#
-    #   mode用于指定测试的模式：
-    #   'predict'           表示单张图片预测，如果想对预测过程进行修改，如保存图片，截取对象等，可以先看下方详细的注释
-    #   'video'             表示视频检测，可调用摄像头或者视频进行检测，详情查看下方注释。
-    #   'fps'               表示测试fps，使用的图片是img里面的street.jpg，详情查看下方注释。
-    #   'dir_predict'       表示遍历文件夹进行检测并保存。默认遍历img文件夹，保存img_out文件夹，详情查看下方注释。
-    #   'export_onnx'       表示将模型导出为onnx，需要pytorch1.7.1以上。
-    #----------------------------------------------------------------------------------------------------------#
-    mode = "video"#"video"#"predict"##
-    #-------------------------------------------------------------------------#
-    #   count               指定了是否进行目标的像素点计数（即面积）与比例计算
-    #   name_classes        区分的种类，和json_to_dataset里面的一样，用于打印种类和数量
-    #
-    #   count、name_classes仅在mode='predict'时有效
-    #-------------------------------------------------------------------------#
-    count           = False
-    name_classes    = ["background","aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car",
-                       "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person",
-                       "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
-    #----------------------------------------------------------------------------------------------------------#
-    #   video_path          用于指定视频的路径，当video_path=0时表示检测摄像头
-    #                       想要检测视频，则设置如video_path = "xxx.mp4"即可，代表读取出根目录下的xxx.mp4文件。
-    #   video_save_path     表示视频保存的路径，当video_save_path=""时表示不保存
-    #                       想要保存视频，则设置如video_save_path = "yyy.mp4"即可，代表保存为根目录下的yyy.mp4文件。
-    #   video_fps           用于保存的视频的fps
-    #
-    #   video_path、video_save_path和video_fps仅在mode='video'时有效
-    #   保存视频时需要ctrl+c退出或者运行到最后一帧才会完成完整的保存步骤。
-    #----------------------------------------------------------------------------------------------------------#
-    video_path      = 0
-    video_save_path = ""
-    video_fps       = 25.0
-    #----------------------------------------------------------------------------------------------------------#
-    #   test_interval       用于指定测量fps的时候，图片检测的次数。理论上test_interval越大，fps越准确。
-    #   fps_image_path      用于指定测试的fps图片
-    #   
-    #   test_interval和fps_image_path仅在mode='fps'有效
-    #------------------------------------------------------------------------------------ ----------------------#
-    test_interval = 100
-    fps_image_path  = "img/street.jpg"
-    #-------------------------------------------------------------------------#
-    #   dir_origin_path     指定了用于检测的图片的文件夹路径
-    #   dir_save_path       指定了检测完图片的保存路径
-    #   
-    #   dir_origin_path和dir_save_path仅在mode='dir_predict'时有效
-    #-------------------------------------------------------------------------#
-    dir_origin_path = "img/"
-    dir_save_path   = "img_out/"
-    #-------------------------------------------------------------------------#
-    #   simplify            使用Simplify onnx
-    #   onnx_save_path      指定了onnx的保存路径
-    #-------------------------------------------------------------------------#
-    simplify        = True
-    onnx_save_path  = "model_data/models.onnx"
+**`2022-03`**:**进行大幅度更新、支持step、cos学习率下降法、支持adam、sgd优化器选择、支持学习率根据batch_size自适应调整。**  
+BiliBili视频中的原仓库地址为：https://github.com/bubbliiiing/deeplabv3-plus-pytorch/tree/bilibili
 
-    if mode == "predict":
-        '''
-        predict.py有几个注意点
-        1、该代码无法直接进行批量预测，如果想要批量预测，可以利用os.listdir()遍历文件夹，利用Image.open打开图片文件进行预测。
-        具体流程可以参考get_miou_prediction.py，在get_miou_prediction.py即实现了遍历。
-        2、如果想要保存，利用r_image.save("img.jpg")即可保存。
-        3、如果想要原图和分割图不混合，可以把blend参数设置成False。
-        4、如果想根据mask获取对应的区域，可以参考detect_image函数中，利用预测结果绘图的部分，判断每一个像素点的种类，然后根据种类获取对应的部分。
-        seg_img = np.zeros((np.shape(pr)[0],np.shape(pr)[1],3))
-        for c in range(self.num_classes):
-            seg_img[:, :, 0] += ((pr == c)*( self.colors[c][0] )).astype('uint8')
-            seg_img[:, :, 1] += ((pr == c)*( self.colors[c][1] )).astype('uint8')
-            seg_img[:, :, 2] += ((pr == c)*( self.colors[c][2] )).astype('uint8')
-        '''
-        while True:
-            img = input('Input image filename:')
-            #img='VOCdevkit/VOCdevkit/VOC2007/JPEGImages/000033.jpg'
-            try:
-                image = Image.open(img)
-            except:
-                print('Open Error! Try again!')
-                continue
-            else:
-                r_image = deeplab.detect_image(image, count=count, name_classes=name_classes)
-                image = cv2.cvtColor(np.array(r_image), cv2.COLOR_RGB2BGR)
-                cv2.imshow("test pic", image)
-                cv2.waitKey()
-                # r_image.show()
+**`2020-08`**:**创建仓库、支持多backbone、支持数据miou评估、标注数据处理、大量注释等。**  
 
-    elif mode == "video":
-        capture=cv2.VideoCapture(video_path)
-        if video_save_path!="":
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            size = (int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)), int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-            out = cv2.VideoWriter(video_save_path, fourcc, video_fps, size)
+## 相关仓库
+| 模型 | 路径 |
+| :----- | :----- |
+Unet | https://github.com/bubbliiiing/unet-pytorch  
+PSPnet | https://github.com/bubbliiiing/pspnet-pytorch
+deeplabv3+ | https://github.com/bubbliiiing/deeplabv3-plus-pytorch
+hrnet | https://github.com/bubbliiiing/hrnet-pytorch
 
-        ref, frame = capture.read()
-        if not ref:
-            raise ValueError("未能正确读取摄像头（视频），请注意是否正确安装摄像头（是否正确填写视频路径）。")
+### 性能情况
+| 训练数据集 | 权值文件名称 | 测试数据集 | 输入图片大小 | mIOU | 
+| :-----: | :-----: | :------: | :------: | :------: | 
+| VOC12+SBD | [deeplab_mobilenetv2.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_mobilenetv2.pth) | VOC-Val12 | 512x512| 72.59 | 
+| VOC12+SBD | [deeplab_xception.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_xception.pth) | VOC-Val12 | 512x512| 76.95 | 
 
-        fps = 0.0
-        while(True):
-            t1 = time.time()
-            # 读取某一帧
-            ref, frame = capture.read()
-            if not ref:
-                break
-            # 格式转变，BGRtoRGB
-            frame = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
-            # 转变成Image
-            frame = Image.fromarray(np.uint8(frame))
-            # 进行检测
-            frame = np.array(deeplab.detect_image(frame))
-            # RGBtoBGR满足opencv显示格式
-            frame = cv2.cvtColor(frame,cv2.COLOR_RGB2BGR)
-            
-            fps  = ( fps + (1./(time.time()-t1)) ) / 2
-            #print("fps= %.2f"%(fps))
-            frame = cv2.putText(frame, "fps= %.2f"%(fps), (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            
-            cv2.imshow("video",frame)
-            c= cv2.waitKey(1) & 0xff 
-            if video_save_path!="":
-                out.write(frame)
+### 所需环境
+torch==1.2.0
 
-            if c==27:
-                capture.release()
-                break
-        print("Video Detection Done!")
-        capture.release()
-        if video_save_path!="":
-            print("Save processed video to the path :" + video_save_path)
-            out.release()
-        cv2.destroyAllWindows()
+### 注意事项
+代码中的deeplab_mobilenetv2.pth和deeplab_xception.pth是基于VOC拓展数据集训练的。训练和预测时注意修改backbone。    
 
-    elif mode == "fps":
-        img = Image.open(fps_image_path)
-        tact_time = deeplab.get_FPS(img, test_interval)
-        print(str(tact_time) + ' seconds, ' + str(1/tact_time) + 'FPS, @batch_size 1')
-        
-    elif mode == "dir_predict":
-        import os
-        from tqdm import tqdm
+### 文件下载
+训练所需的deeplab_mobilenetv2.pth和deeplab_xception.pth可在百度网盘中下载。     
+链接: https://pan.baidu.com/s/1IQ3XYW-yRWQAy7jxCUHq8Q 提取码: qqq4   
 
-        img_names = os.listdir(dir_origin_path)
-        for img_name in tqdm(img_names):
-            if img_name.lower().endswith(('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')):
-                image_path  = os.path.join(dir_origin_path, img_name)
-                image       = Image.open(image_path)
-                r_image     = deeplab.detect_image(image)
-                if not os.path.exists(dir_save_path):
-                    os.makedirs(dir_save_path)
-                r_image.save(os.path.join(dir_save_path, img_name))
-    elif mode == "export_onnx":
-        deeplab.convert_to_onnx(simplify, onnx_save_path)
-        
-    else:
-        raise AssertionError("Please specify the correct mode: 'predict', 'video', 'fps' or 'dir_predict'.")
+VOC拓展数据集的百度网盘如下：  
+链接: https://pan.baidu.com/s/1vkk3lMheUm6IjTXznlg7Ng 提取码: 44mk   
+
+### 训练步骤
+#### a、训练voc数据集
+1、将我提供的voc数据集放入VOCdevkit中（无需运行voc_annotation.py）。  
+2、在train.py中设置对应参数，默认参数已经对应voc数据集所需要的参数了，所以只要修改backbone和model_path即可。  
+3、运行train.py进行训练。  
+
+#### b、训练自己的数据集
+1、本文使用VOC格式进行训练。  
+2、训练前将标签文件放在VOCdevkit文件夹下的VOC2007文件夹下的SegmentationClass中。    
+3、训练前将图片文件放在VOCdevkit文件夹下的VOC2007文件夹下的JPEGImages中。    
+4、在训练前利用voc_annotation.py文件生成对应的txt。    
+5、在train.py文件夹下面，选择自己要使用的主干模型和下采样因子。本文提供的主干模型有mobilenet和xception。下采样因子可以在8和16中选择。需要注意的是，预训练模型需要和主干模型相对应。   
+6、注意修改train.py的num_classes为分类个数+1。    
+7、运行train.py即可开始训练。  
+
+### 预测步骤
+#### a、使用预训练权重
+1、下载完库后解压，如果想用backbone为mobilenet的进行预测，直接运行predict.py就可以了；如果想要利用backbone为xception的进行预测，在百度网盘下载deeplab_xception.pth，放入model_data，修改deeplab.py的backbone和model_path之后再运行predict.py，输入。  
+```python
+img/street.jpg
+```
+可完成预测。    
+2、在predict.py里面进行设置可以进行fps测试、整个文件夹的测试和video视频检测。       
+
+#### b、使用自己训练的权重
+1、按照训练步骤训练。    
+2、在deeplab.py文件里面，在如下部分修改model_path、num_classes、backbone使其对应训练好的文件；**model_path对应logs文件夹下面的权值文件，num_classes代表要预测的类的数量加1，backbone是所使用的主干特征提取网络**。    
+```python
+_defaults = {
+    #----------------------------------------#
+    #   model_path指向logs文件夹下的权值文件
+    #----------------------------------------#
+    "model_path"        : 'model_data/deeplab_mobilenetv2.pth',
+    #----------------------------------------#
+    #   所需要区分的类的个数+1
+    #----------------------------------------#
+    "num_classes"       : 21,
+    #----------------------------------------#
+    #   所使用的的主干网络
+    #----------------------------------------#
+    "backbone"          : "mobilenet",
+    #----------------------------------------#
+    #   输入图片的大小
+    #----------------------------------------#
+    "input_shape"       : [512, 512],
+    #----------------------------------------#
+    #   下采样的倍数，一般可选的为8和16
+    #   与训练时设置的一样即可
+    #----------------------------------------#
+    "downsample_factor" : 16,
+    #--------------------------------#
+    #   blend参数用于控制是否
+    #   让识别结果和原图混合
+    #--------------------------------#
+    "blend"             : True,
+    #-------------------------------#
+    #   是否使用Cuda
+    #   没有GPU可以设置成False
+    #-------------------------------#
+    "cuda"              : True,
+}
+```
+3、运行predict.py，输入    
+```python
+img/street.jpg
+```
+可完成预测。    
+4、在predict.py里面进行设置可以进行fps测试、整个文件夹的测试和video视频检测。   
+
+### 评估步骤
+1、设置get_miou.py里面的num_classes为预测的类的数量加1。  
+2、设置get_miou.py里面的name_classes为需要去区分的类别。  
+3、运行get_miou.py即可获得miou大小。  
+
+### Reference
+https://github.com/ggyyzm/pytorch_segmentation  
+https://github.com/bonlime/keras-deeplab-v3-plus
