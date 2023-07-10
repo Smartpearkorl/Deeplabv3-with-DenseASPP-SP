@@ -61,10 +61,12 @@
 ## <span id="jump_性能情况">性能情况</span> 
 |network | train dataset | weight file | val dataset | input size | mIOU | 
 | :-----:| :-----: | :-----: | :------: | :------: | :------: | 
-|ASPP | VOC | [deeplab_mobilenetv2.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_mobilenetv2.pth) | VOC-Val | 512x512| 72.63 | 
-|DenseASPP+SP | VOC | [deeplab_mobilenetv2.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_mobilenetv2.pth) | VOC-Val | 512x512| 74.44 | 
-|ASPP | Cityscapes| [deeplab_xception.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_xception.pth) | Cityscapes-Val | 512x512|64.92 | 
-|DenseASPP+SP | Cityscapes| [deeplab_xception.pth](https://github.com/bubbliiiing/deeplabv3-plus-pytorch/releases/download/v1.0/deeplab_xception.pth) | Cityscapes-Val | 512x512| 67.37 | 
+|ASPP | VOC | [aspp_voc_miou_72.63.pth](https://github.com/Smartpearkorl/Deeplabv3-with-DenseASPP-SP/raw/master/model_data/) | VOC-Val | 512x512| 72.63 | 
+|DenseASPP+SP | VOC | [dense_voc_miou_74.44.pth](https://github.com/Smartpearkorl/Deeplabv3-with-DenseASPP-SP/raw/master/model_data/dense_voc_miou_74.44.pth) | VOC-Val | 512x512| 74.44 | 
+|ASPP | Cityscapes| [aspp_city_miou_64.92.pth](https://github.com/Smartpearkorl/Deeplabv3-with-DenseASPP-SP/raw/master/model_data/aspp_city_miou_64.92.pth) | Cityscapes-Val | 512x512|64.92 | 
+|DenseASPP+SP | Cityscapes| [dense_city_miou_67.39.pth](https://github.com/Smartpearkorl/Deeplabv3-with-DenseASPP-SP/raw/master/model_data/dense_city_miou_67.39.pth) | Cityscapes-Val | 512x512| 67.39 | 
+
+
 ## 模型训练
 具体的训练参数调整可以参考[Bubbliiiing的项目](https://github.com/bubbliiiing/deeplabv3-plus-pytorch)，写的也非常详细。本项目的训练代码没有整合，分为四个文件，对应[性能情况](#jump_性能情况)的四个mIOU结果。具体在代码中，也就是网络结构和数据集不同。
 ```python
